@@ -14,18 +14,44 @@ function uniqueSorted(values) {
   return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
 }
 
+// The real catalog lists blends as one raw string per bottle (e.g. "Tinto Fino
+// (Tempranillo), Merlot, Albillo Mayor" or "Garnacha, Cariñena & Syrah") — split
+// on commas/ampersands so each variety becomes its own filterable facet value
+// instead of every unique blend combination becoming a one-off row.
+// The source listings spell a few grapes inconsistently across bottles (missing
+// accents, one typo) — normalize the clear cases so they collapse into a single
+// facet row instead of splitting an otherwise-identical variety into two.
+const GRAPE_ALIASES = {
+  "Mencia": "Mencía",
+  "Codega": "Códega",
+  "Pedro Ximenez": "Pedro Ximénez",
+  "Touriga Nacional": "Touriga Naçional",
+  "Tinta Amarella": "Tinta Amarela",
+  "Dozelinho Tinto": "Donzelinho Tinto",
+  "Alvarinho (Albariño )": "Alvarinho (Albariño)"
+};
+
+function parseGrapes(grapeStr) {
+  if (!grapeStr) return [];
+  return grapeStr
+    .split(/,|&/)
+    .map(s => s.trim().replace(/\.$/, ""))
+    .filter(Boolean)
+    .map(g => GRAPE_ALIASES[g] || g);
+}
+
 function buildFacetDefs() {
   const countries = ["Spain", "Portugal"];
   const styles = ["White", "Red", "Rosé", "Sparkling", "Gin & spirits"];
   const regions = uniqueSorted(PRODUCTS.map(p => p.region));
-  const grapes = uniqueSorted(PRODUCTS.map(p => p.grape));
+  const grapes = uniqueSorted(PRODUCTS.flatMap(p => parseGrapes(p.grape)));
 
   return [
     { key: "country", label: "Country", rows: countries.map(v => ({ value: v, name: v, test: p => p.country === v })) },
     { key: "style", label: "Style", rows: styles.map(v => ({ value: v, name: v, test: p => p.style === v })) },
     { key: "region", label: "Region", rows: regions.map(v => ({ value: v, name: v, test: p => p.region === v })) },
     { key: "price", label: "Price", rows: PRICE_BUCKETS.map(b => ({ value: b.key, name: b.label, test: b.test })) },
-    { key: "grape", label: "Grape", rows: grapes.map(v => ({ value: v, name: v, test: p => p.grape === v })) }
+    { key: "grape", label: "Grape", rows: grapes.map(v => ({ value: v, name: v, test: p => parseGrapes(p.grape).includes(v) })) }
   ];
 }
 
@@ -66,7 +92,7 @@ function activeRowsInGroup(group) {
 }
 
 function matchesProduct(p) {
-  if (seasonalOnly && !p.seasonal) return false;
+  if (seasonalOnly && !SEASONAL_IDS.includes(p.id)) return false;
   for (const group of FACET_DEFS) {
     const active = activeRowsInGroup(group);
     if (active.length && !active.some(r => r.test(p))) return false;
@@ -104,6 +130,10 @@ function applyUrlParams() {
   const style = params.get("style");
   if (style && FACET_DEFS.find(g => g.key === "style").rows.some(r => r.value === style)) {
     checked[checkedKey("style", style)] = true;
+  }
+  const region = params.get("region");
+  if (region && FACET_DEFS.find(g => g.key === "region").rows.some(r => r.value === region)) {
+    checked[checkedKey("region", region)] = true;
   }
   if (params.get("seasonal") === "1") seasonalOnly = true;
 

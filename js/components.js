@@ -19,10 +19,18 @@ function renderProductCard(p) {
     ? `<div class="product-card__badge">${esc(p.badge)}</div>`
     : "";
   const priceNum = parseFloat(String(p.price).replace(/[^0-9.]/g, "")) || 0;
+  // Real bottle photos come straight from oleobrigado.com's own product pages;
+  // if one fails to load (or there isn't one, like the hero bottle), fall back
+  // to the placeholder the original design used everywhere.
+  const img = p.image
+    ? `<img src="${esc(p.image)}" alt="${esc(p.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">`
+    : "";
+  const fallback = `<span${p.image ? ' style="display:none"' : ""}>bottle shot</span>`;
   return `
     <a href="product.html" class="product-card" data-price="${priceNum}">
       <div class="product-card__image">
-        <span>bottle shot</span>
+        ${img}
+        ${fallback}
         ${badge}
       </div>
       <div class="product-card__body">

@@ -64,6 +64,7 @@ let searchTerm = "";
 let sortMode = "Featured";
 let visibleCount = 6;
 let sheetExpanded = new Set(["Country", "Style"]);
+let facetSearch = { region: "", grape: "" }; // typeahead within the long Region/Grape lists
 
 function checkedKey(groupKey, value) {
   return groupKey + ":" + value;
@@ -83,8 +84,40 @@ function toggleChecked(groupKey, value) {
 function clearAllFilters() {
   checked = {};
   seasonalOnly = false;
+  facetSearch = { region: "", grape: "" };
   visibleCount = 6;
   renderAll();
+}
+
+function filteredGroupRows(g) {
+  const term = (facetSearch[g.key] || "").trim().toLowerCase();
+  if (!term) return g.rows;
+  return g.rows.filter(r => r.name.toLowerCase().includes(term));
+}
+
+// Only these two groups are long enough to need a typeahead + scroll view.
+function isScrollableGroup(g) {
+  return g.key === "region" || g.key === "grape";
+}
+
+function facetSearchMarkup(g) {
+  if (!isScrollableGroup(g)) return "";
+  return `<input type="text" class="filter-group__search" data-facet-search="${g.key}" placeholder="Search ${escAttr(g.label.toLowerCase())}" value="${escAttr(facetSearch[g.key] || "")}" autocomplete="off">`;
+}
+
+// Re-renders only the rows inside one group's scroll container — used while
+// typing in its search box, so the input itself is never destroyed/re-created
+// (which would drop focus and the cursor position on every keystroke).
+function updateFacetRows(key) {
+  const g = FACET_DEFS.find(x => x.key === key);
+  if (!g) return;
+  const rows = filteredGroupRows(g);
+  document.querySelectorAll(`[data-facet-rows="${key}"]`).forEach(container => {
+    const size = container.getAttribute("data-facet-size");
+    container.innerHTML = rows.length
+      ? rows.map(r => filterRowMarkup(g, r, size)).join("")
+      : `<div class="filter-group__empty">No matches</div>`;
+  });
 }
 
 function activeRowsInGroup(group) {
@@ -228,12 +261,16 @@ function renderSidebar() {
       <button type="button" class="filter-sidebar__clear" data-filter-clear>Clear</button>
     </div>
     ${FACET_DEFS.map(g => {
-      const rowsHtml = g.rows.map(r => filterRowMarkup(g, r, "sidebar")).join("");
-      const scroll = g.key === "region" || g.key === "grape";
+      const rows = filteredGroupRows(g);
+      const rowsHtml = rows.length
+        ? rows.map(r => filterRowMarkup(g, r, "sidebar")).join("")
+        : `<div class="filter-group__empty">No matches</div>`;
+      const scroll = isScrollableGroup(g);
       return `
       <div class="filter-group">
         <div class="filter-group__label">${g.label}</div>
-        ${scroll ? `<div class="filter-group__scroll">${rowsHtml}</div>` : rowsHtml}
+        ${facetSearchMarkup(g)}
+        ${scroll ? `<div class="filter-group__scroll" data-facet-rows="${g.key}" data-facet-size="sidebar">${rowsHtml}</div>` : rowsHtml}
       </div>`;
     }).join("")}
   `;
@@ -244,15 +281,19 @@ function renderSheet() {
   if (!el) return;
   el.innerHTML = FACET_DEFS.map(g => {
     const open = sheetExpanded.has(g.label);
-    const rowsHtml = g.rows.map(r => filterRowMarkup(g, r, "sheet")).join("");
-    const scroll = g.key === "region" || g.key === "grape";
+    const rows = filteredGroupRows(g);
+    const rowsHtml = rows.length
+      ? rows.map(r => filterRowMarkup(g, r, "sheet")).join("")
+      : `<div class="filter-group__empty">No matches</div>`;
+    const scroll = isScrollableGroup(g);
     return `
       <div class="sheet-group">
         <button type="button" class="sheet-group__head" data-sheet-group-toggle="${g.label}">
           <span class="sheet-group__label">${g.label}</span>
           <span class="sheet-group__chevron">${open ? "−" : "+"}</span>
         </button>
-        ${open ? (scroll ? `<div class="filter-group__scroll">${rowsHtml}</div>` : rowsHtml) : ""}
+        ${open ? facetSearchMarkup(g) : ""}
+        ${open ? (scroll ? `<div class="filter-group__scroll" data-facet-rows="${g.key}" data-facet-size="sheet">${rowsHtml}</div>` : rowsHtml) : ""}
       </div>`;
   }).join("");
   document.querySelectorAll("[data-filter-sheet-badge]").forEach(b => (b.textContent = activeCount()));
@@ -298,6 +339,19 @@ function renderResults(results) {
   const emptyState = document.querySelector("[data-empty-state]");
   if (emptyState) emptyState.hidden = results.length > 0;
 }
+
+document.addEventListener("input", e => {
+  const searchInput = e.target.closest("[data-facet-search]");
+  if (!searchInput) return;
+  const key = searchInput.getAttribute("data-facet-search");
+  facetSearch[key] = searchInput.value;
+  updateFacetRows(key);
+  // Mirror the typed value into the other breakpoint's copy of this box
+  // (desktop sidebar vs. mobile sheet) without touching the one being typed in.
+  document.querySelectorAll(`[data-facet-search="${key}"]`).forEach(input => {
+    if (input !== searchInput) input.value = searchInput.value;
+  });
+});
 
 document.addEventListener("click", e => {
   const row = e.target.closest("[data-filter-group][data-filter-value]");

@@ -33,6 +33,14 @@
 
 * , *::before, *::after { box-sizing: border-box; }
 
+/* The browser's own [hidden]{display:none} rule is UA-origin, so it loses to
+   ANY author rule that sets display on the same element — including a class
+   like .btn that sets `display:flex` unconditionally for its visible state.
+   Without this, toggling el.hidden on an element whose class also sets
+   `display` silently does nothing. This one rule makes `hidden` reliable
+   everywhere in this codebase, present and future. */
+[hidden] { display: none !important; }
+
 html, body { margin: 0; padding: 0; }
 
 body {
@@ -141,9 +149,13 @@ button { font-family: inherit; }
   display: flex; align-items: center; gap: 10px; background: var(--paper);
   border: 1px solid var(--border-field); border-radius: 2px; padding: 9px 14px; width: 224px; flex: 0 0 auto;
 }
-.search-box:hover { border-color: var(--border-strong); color: inherit; }
+.search-box:hover, .search-box:focus-within { border-color: var(--border-strong); color: inherit; }
 .search-dot { width: 11px; height: 11px; border: 1.5px solid var(--label); border-radius: 50%; flex: 0 0 auto; }
-.search-box span { font-size: 13.5px; color: var(--label); }
+.search-input {
+  flex: 1; min-width: 0; border: none; background: none; outline: none; padding: 0;
+  font-family: inherit; font-size: 13.5px; color: var(--ink);
+}
+.search-input::placeholder { color: var(--label); }
 
 .cart-link { font-family: var(--font-mono); font-size: 13px; color: var(--ink); white-space: nowrap; flex: 0 0 auto; background: none; border: none; cursor: pointer; }
 .cart-link:hover { color: var(--link-hover); }
@@ -219,6 +231,7 @@ button { font-family: inherit; }
 .footer-brand { display: flex; flex-direction: column; gap: 12px; }
 .footer-brand img { border-radius: 50%; }
 .footer-brand p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--muted); max-width: 30ch; }
+.footer-brand--mobile p { max-width: none; }
 .social-row { display: flex; gap: 16px; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--label); }
 .social-row a:hover { color: var(--link-hover); }
 
@@ -237,7 +250,7 @@ button { font-family: inherit; }
 .footer-bottom__links a:hover { color: var(--link-hover); }
 
 @media (min-width: 880px) {
-  .footer-grid { grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr; gap: 32px; }
+  .footer-grid { grid-template-columns: 1.3fr repeat(5, 1fr); gap: 24px; }
   .footer-bottom { flex-direction: row; align-items: center; justify-content: space-between; gap: 28px; margin-top: 36px; }
 }
 
@@ -392,7 +405,7 @@ button { font-family: inherit; }
 /* ---------- Trust bar ---------- */
 
 .trust-list { border-top: 1px solid var(--border); }
-.trust-item { padding: 20px; border-bottom: 1px solid var(--border); }
+.trust-item { padding: 20px; border-bottom: 1px solid var(--border); text-align: center; }
 .trust-item__h { font-family: var(--font-sans); font-weight: 600; font-size: 14px; color: var(--ink); margin-bottom: 4px; }
 .trust-item__p { font-size: 12.5px; line-height: 1.5; color: var(--muted); margin: 0; }
 
@@ -661,6 +674,11 @@ body.has-buy-bar { padding-bottom: 76px; }
   .spec-row { padding-bottom: 8px; border-bottom: 1px solid var(--border); }
   .pd-related { padding: 44px 40px 52px; }
   .pd-related .section-head { padding: 0; }
+}
+
+.empty-state {
+  text-align: center; padding: 48px 20px; color: var(--muted);
+  font-size: 14px; line-height: 1.6; border: 1px dashed var(--border); border-radius: 3px; margin-bottom: 22px;
 }
 
 /* ---------- "Worth deciding" note on homepage (kept as a subtle footer note, per the design's own open questions) ---------- */

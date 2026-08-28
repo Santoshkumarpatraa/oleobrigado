@@ -8,6 +8,12 @@ function esc(str) {
   return div.innerHTML;
 }
 
+// Every link — internal pages and real oleobrigado.com destinations alike —
+// opens in the same tab.
+function linkAttrs(href) {
+  return `href="${esc(href)}"`;
+}
+
 function renderProductCard(p) {
   const badge = p.badge
     ? `<div class="product-card__badge">${esc(p.badge)}</div>`
@@ -40,7 +46,7 @@ function renderUtilDropdown(item) {
   if (!item.items.length) return "";
   return `
     <div class="util-dropdown" data-util-dropdown="${esc(item.label)}">
-      ${item.items.map(s => `<a href="${esc(s.href)}" target="_blank" rel="noopener">${esc(s.label)}</a>`).join("")}
+      ${item.items.map(s => `<a ${linkAttrs(s.href)}>${esc(s.label)}</a>`).join("")}
     </div>`;
 }
 
@@ -51,7 +57,7 @@ function renderUtilNav() {
     const tag = hasMenu ? "button" : "a";
     const attrs = hasMenu
       ? `type="button" class="util-nav__link" data-util-toggle="${esc(item.label)}"`
-      : `href="${esc(item.href)}" target="_blank" rel="noopener" class="util-nav__link"`;
+      : `${linkAttrs(item.href)} class="util-nav__link"`;
     return `
       <div class="util-nav__item">
         <${tag} ${attrs}><span>${esc(item.label)}</span>${caret}</${tag}>
@@ -63,7 +69,7 @@ function renderUtilNav() {
 function renderShopNav(active) {
   return SHOP_NAV.map(n => {
     const cls = n.label === active ? "active" : "";
-    return `<a href="${esc(n.href)}" target="_blank" rel="noopener" class="${cls}">${esc(n.label)}</a>`;
+    return `<a ${linkAttrs(n.href)} class="${cls}" data-shop-nav="${esc(n.label)}">${esc(n.label)}</a>`;
   }).join("");
 }
 
@@ -72,12 +78,12 @@ function renderDrawerInfo() {
     const hasMenu = item.items.length > 0;
     const caret = hasMenu ? `<span class="drawer__caret" data-drawer-sign="${esc(item.label)}">+</span>` : "";
     const sub = hasMenu
-      ? `<div data-drawer-sub="${esc(item.label)}" hidden>${item.items.map(s => `<a href="${esc(s.href)}" target="_blank" rel="noopener" class="drawer__sub">${esc(s.label)}</a>`).join("")}</div>`
+      ? `<div data-drawer-sub="${esc(item.label)}" hidden>${item.items.map(s => `<a ${linkAttrs(s.href)} class="drawer__sub">${esc(s.label)}</a>`).join("")}</div>`
       : "";
     const toggleAttr = hasMenu ? `data-drawer-toggle="${esc(item.label)}"` : "";
     return `
       <div class="drawer__info-item">
-        <a href="${esc(item.href)}" target="_blank" rel="noopener" class="drawer__info-toggle" ${toggleAttr}>
+        <a ${linkAttrs(item.href)} class="drawer__info-toggle" ${toggleAttr}>
           <span>${esc(item.label)}</span>${caret}
         </a>
         ${sub}
@@ -98,10 +104,7 @@ function renderHeader(active) {
         </a>
         <div class="shop-nav-wrap">
           <nav class="shop-nav" aria-label="Shop">${renderShopNav(active)}</nav>
-          <a href="${OO}/?search" target="_blank" rel="noopener" class="search-box">
-            <span class="search-dot" aria-hidden="true"></span>
-            <span>Grape, region, producer</span>
-          </a>
+          ${renderSearchForm()}
           <button type="button" class="cart-link" data-cart-badge>CART (0)</button>
         </div>
       </div>
@@ -121,10 +124,7 @@ function renderHeader(active) {
         </div>
       </div>
       <div class="mobile-search-wrap">
-        <a href="${OO}/?search" target="_blank" rel="noopener" class="search-box">
-          <span class="search-dot" aria-hidden="true"></span>
-          <span>Grape, region, producer</span>
-        </a>
+        ${renderSearchForm()}
       </div>
     </div>
 
@@ -135,30 +135,38 @@ function renderHeader(active) {
         <button type="button" class="drawer__close" data-drawer-close aria-label="Close menu">✕</button>
       </div>
       <div class="drawer__body">
-        ${SHOP_NAV.map(n => `<a href="${esc(n.href)}" target="_blank" rel="noopener" class="drawer__shop-link">${esc(n.label)}</a>`).join("")}
+        ${SHOP_NAV.map(n => `<a ${linkAttrs(n.href)} class="drawer__shop-link">${esc(n.label)}</a>`).join("")}
         <div class="drawer__section-label">Company &amp; trade</div>
         ${renderDrawerInfo()}
       </div>
       <div class="drawer__foot">
-        <a href="${OO}/?search" target="_blank" rel="noopener">Search</a>
-        <a href="https://www.instagram.com/oleobrigado/" target="_blank" rel="noopener">Instagram</a>
-        <a href="https://www.facebook.com/OleObrigado/" target="_blank" rel="noopener">Facebook</a>
+        <a href="browse.html">Search</a>
+        <a href="https://www.instagram.com/oleobrigado/">Instagram</a>
+        <a href="https://www.facebook.com/OleObrigado/">Facebook</a>
       </div>
     </div>`;
+}
+
+function renderSearchForm() {
+  return `
+    <form class="search-box" action="browse.html" method="get" data-search-form>
+      <span class="search-dot" aria-hidden="true"></span>
+      <input type="search" name="q" class="search-input" placeholder="Grape, region, producer" autocomplete="off">
+    </form>`;
 }
 
 function renderFooter() {
   const colsDesktop = FOOTER_COLS.map(c => `
     <div class="footer-col">
       <div class="footer-col__title">${esc(c.title)}</div>
-      ${c.links.map(l => `<a href="${esc(l.href)}" target="_blank" rel="noopener">${esc(l.label)}</a>`).join("")}
+      ${c.links.map(l => `<a ${linkAttrs(l.href)}>${esc(l.label)}</a>`).join("")}
     </div>`).join("");
 
   const colsMobile = FOOTER_COLS.map(c => `
     <div class="footer-col">
       <div class="footer-col__title">${esc(c.title)}</div>
       <div class="footer-col__links">
-        ${c.links.map(l => `<a href="${esc(l.href)}" target="_blank" rel="noopener">${esc(l.label)}</a>`).join("")}
+        ${c.links.map(l => `<a ${linkAttrs(l.href)}>${esc(l.label)}</a>`).join("")}
       </div>
     </div>`).join("");
 
@@ -167,13 +175,13 @@ function renderFooter() {
       <div class="site-footer">
         <div class="footer-grid">
           <div class="footer-brand">
-            <a href="${OO}/" target="_blank" rel="noopener">
+            <a href="${OO}/">
               <img src="assets/ole-logo-round.png" alt="Olé &amp; Obrigado" width="52" height="52">
             </a>
             <p>A curated collection of wines from family-owned estates across Spain and Portugal. Imported nationally, distributed direct in NY and NJ.</p>
             <div class="social-row">
-              <a href="https://www.instagram.com/oleobrigado/" target="_blank" rel="noopener">Instagram</a>
-              <a href="https://www.facebook.com/OleObrigado/" target="_blank" rel="noopener">Facebook</a>
+              <a href="https://www.instagram.com/oleobrigado/">Instagram</a>
+              <a href="https://www.facebook.com/OleObrigado/">Facebook</a>
             </div>
           </div>
           ${colsDesktop}
@@ -193,11 +201,17 @@ function renderFooter() {
     </div>
     <div class="only-mobile">
       <div class="site-footer site-footer--mobile">
+        <div class="footer-brand footer-brand--mobile">
+          <a href="${OO}/">
+            <img src="assets/ole-logo-round.png" alt="Olé &amp; Obrigado" width="52" height="52">
+          </a>
+          <p>A curated collection of wines from family-owned estates across Spain and Portugal. Imported nationally, distributed direct in NY and NJ.</p>
+        </div>
         ${colsMobile}
         <div class="footer-bottom">
           <div class="social-row">
-            <a href="https://www.instagram.com/oleobrigado/" target="_blank" rel="noopener">Instagram</a>
-            <a href="https://www.facebook.com/OleObrigado/" target="_blank" rel="noopener">Facebook</a>
+            <a href="https://www.instagram.com/oleobrigado/">Instagram</a>
+            <a href="https://www.facebook.com/OleObrigado/">Facebook</a>
           </div>
           <div class="footer-bottom__legal">You must be 21 or older to purchase. Please enjoy responsibly.</div>
           <div class="footer-bottom__copy">© 2026 Olé &amp; Obrigado Imports</div>
@@ -214,8 +228,10 @@ function mountSiteChrome() {
     el.innerHTML = renderFooter();
   });
   document.querySelectorAll("[data-product-grid]").forEach(el => {
+    // "browse" is owned by browse.js (filter/sort/search-driven) — skip it here.
     const key = el.getAttribute("data-product-grid");
-    const list = { seasonal: SEASONAL_PRODUCTS, browse: BROWSE_PRODUCTS, related: RELATED_PRODUCTS }[key] || [];
+    if (key === "browse") return;
+    const list = { seasonal: SEASONAL_PRODUCTS, related: RELATED_PRODUCTS }[key] || [];
     el.innerHTML = renderProductGrid(list);
   });
   document.querySelectorAll("[data-category-grid]").forEach(el => {

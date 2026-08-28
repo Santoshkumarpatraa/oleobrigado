@@ -1,62 +1,188 @@
-// Browse page: filter sidebar (desktop) + mobile filter sheet + sort + chips.
-// A single filter state drives all three surfaces so they can never disagree —
-// that three-way mismatch (badge vs. sheet vs. chips) was one of the defects
-// the design review called out and fixed.
+// Browse page: filter sidebar (desktop) + mobile filter sheet + sort + search +
+// chips + pagination — all driven off the shared PRODUCTS catalog (data.js), so
+// results, counts, chips and the "N results" text are always the real, current
+// answer instead of decorative state layered on a fixed 6-item grid.
 
-let filterState = FILTER_GROUPS.map(g => ({
-  label: g.label,
-  key: g.key,
-  rows: g.rows.map(r => ({ name: r.name, count: r.count, on: r.on }))
-}));
+const PRICE_BUCKETS = [
+  { key: "under20", label: "Under $20", test: p => p.priceNum < 20 },
+  { key: "20-30", label: "$20 – $30", test: p => p.priceNum >= 20 && p.priceNum < 30 },
+  { key: "30-50", label: "$30 – $50", test: p => p.priceNum >= 30 && p.priceNum < 50 },
+  { key: "50plus", label: "$50+", test: p => p.priceNum >= 50 }
+];
 
-let sheetExpanded = new Set(["Country", "Style"]); // matches the design: first two groups open by default
+function uniqueSorted(values) {
+  return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
 
-document.addEventListener("DOMContentLoaded", () => {
-  renderSidebar();
-  renderSheet();
-  renderChipsAndBadges();
-  wireSortDropdown();
-  wireSheetOpenClose();
-  wireLoadMore();
-});
+function buildFacetDefs() {
+  const countries = ["Spain", "Portugal"];
+  const styles = ["White", "Red", "Rosé", "Sparkling", "Gin & spirits"];
+  const regions = uniqueSorted(PRODUCTS.map(p => p.region));
+  const grapes = uniqueSorted(PRODUCTS.map(p => p.grape));
+
+  return [
+    { key: "country", label: "Country", rows: countries.map(v => ({ value: v, name: v, test: p => p.country === v })) },
+    { key: "style", label: "Style", rows: styles.map(v => ({ value: v, name: v, test: p => p.style === v })) },
+    { key: "region", label: "Region", rows: regions.map(v => ({ value: v, name: v, test: p => p.region === v })) },
+    { key: "price", label: "Price", rows: PRICE_BUCKETS.map(b => ({ value: b.key, name: b.label, test: b.test })) },
+    { key: "grape", label: "Grape", rows: grapes.map(v => ({ value: v, name: v, test: p => p.grape === v })) }
+  ];
+}
+
+const FACET_DEFS = buildFacetDefs();
+
+// state
+let checked = {}; // { "style:White": true, ... }
+let seasonalOnly = false;
+let searchTerm = "";
+let sortMode = "Featured";
+let visibleCount = 6;
+let sheetExpanded = new Set(["Country", "Style"]);
+
+function checkedKey(groupKey, value) {
+  return groupKey + ":" + value;
+}
+
+function isChecked(groupKey, value) {
+  return !!checked[checkedKey(groupKey, value)];
+}
+
+function toggleChecked(groupKey, value) {
+  const key = checkedKey(groupKey, value);
+  checked[key] = !checked[key];
+  visibleCount = 6;
+  renderAll();
+}
+
+function clearAllFilters() {
+  checked = {};
+  seasonalOnly = false;
+  visibleCount = 6;
+  renderAll();
+}
+
+function activeRowsInGroup(group) {
+  return group.rows.filter(r => isChecked(group.key, r.value));
+}
+
+function matchesProduct(p) {
+  if (seasonalOnly && !p.seasonal) return false;
+  for (const group of FACET_DEFS) {
+    const active = activeRowsInGroup(group);
+    if (active.length && !active.some(r => r.test(p))) return false;
+  }
+  if (searchTerm) {
+    const haystack = (p.producer + " " + p.title + " " + p.note + " " + p.region + " " + p.grape).toLowerCase();
+    if (!haystack.includes(searchTerm.toLowerCase())) return false;
+  }
+  return true;
+}
+
+function filteredSortedProducts() {
+  const list = PRODUCTS.filter(matchesProduct);
+  if (sortMode === "Price: low to high") list.sort((a, b) => a.priceNum - b.priceNum);
+  else if (sortMode === "Price: high to low") list.sort((a, b) => b.priceNum - a.priceNum);
+  return list;
+}
 
 function activeCount() {
-  return filterState.reduce((n, g) => n + g.rows.filter(r => r.on).length, 0);
+  let n = Object.values(checked).filter(Boolean).length;
+  if (seasonalOnly) n += 1;
+  return n;
 }
 
-function toggleFilter(groupKey, name) {
-  const group = filterState.find(g => g.key === groupKey);
-  if (!group) return;
-  const row = group.rows.find(r => r.name === name);
-  if (!row) return;
-  row.on = !row.on;
+document.addEventListener("DOMContentLoaded", () => {
+  applyUrlParams();
+  wireStaticControls();
+  renderAll();
+});
+
+function applyUrlParams() {
+  const params = new URLSearchParams(location.search);
+  const q = params.get("q");
+  if (q) searchTerm = q;
+  const style = params.get("style");
+  if (style && FACET_DEFS.find(g => g.key === "style").rows.some(r => r.value === style)) {
+    checked[checkedKey("style", style)] = true;
+  }
+  if (params.get("seasonal") === "1") seasonalOnly = true;
+
+  document.querySelectorAll('[data-search-form] .search-input').forEach(input => (input.value = searchTerm));
+}
+
+function wireStaticControls() {
+  // Live search: on browse.html, the header search box filters in place instead
+  // of doing a full-page GET navigation.
+  document.querySelectorAll("[data-search-form]").forEach(form => {
+    form.addEventListener("submit", e => {
+      e.preventDefault();
+      const input = form.querySelector(".search-input");
+      searchTerm = input.value.trim();
+      visibleCount = 6;
+      renderAll();
+    });
+    const input = form.querySelector(".search-input");
+    let debounce;
+    input.addEventListener("input", () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        searchTerm = input.value.trim();
+        visibleCount = 6;
+        renderAll();
+      }, 200);
+    });
+  });
+
+  wireSheetOpenClose();
+  wireSortDropdown();
+  wireLoadMore();
+}
+
+function activeNavLabel() {
+  if (seasonalOnly) return "Seasonal";
+  const styleRows = activeRowsInGroup(FACET_DEFS.find(g => g.key === "style"));
+  if (styleRows.length === 1 && styleRows[0].value === "Gin & spirits" && activeCount() === 1) return "Spirits";
+  return "Wine";
+}
+
+function renderAll() {
+  const results = filteredSortedProducts();
   renderSidebar();
   renderSheet();
-  renderChipsAndBadges();
+  renderChipsAndBadges(results.length);
+  renderResults(results);
+  renderShopNavActive();
+  // Keep the desktop and mobile search inputs (two separate DOM nodes) in sync,
+  // so a value set by URL, a chip removal, or typing in one is reflected in both.
+  document.querySelectorAll(".search-input").forEach(input => {
+    if (input.value !== searchTerm && document.activeElement !== input) input.value = searchTerm;
+  });
 }
 
-function clearFilters() {
-  filterState.forEach(g => g.rows.forEach(r => (r.on = false)));
-  renderSidebar();
-  renderSheet();
-  renderChipsAndBadges();
-}
-
-function filterRowMarkup(groupKey, r, size) {
-  const boxClass = size === "sheet" ? "sheet-row__box" : "filter-row__box";
-  const rowClass = size === "sheet" ? "sheet-row" : "filter-row";
-  const nameClass = size === "sheet" ? "sheet-row__name" : "filter-row__name";
-  const countClass = size === "sheet" ? "sheet-row__count" : "filter-row__count";
-  return `
-    <button type="button" class="${rowClass} ${r.on ? "is-checked" : ""}" data-filter-group="${groupKey}" data-filter-name="${escAttr(r.name)}">
-      <span class="${boxClass}">${r.on ? "✓" : ""}</span>
-      <span class="${nameClass}">${escAttr(r.name)}</span>
-      <span class="${countClass}">${r.count}</span>
-    </button>`;
+function renderShopNavActive() {
+  const label = activeNavLabel();
+  document.querySelectorAll("[data-shop-nav]").forEach(a => {
+    a.classList.toggle("active", a.getAttribute("data-shop-nav") === label);
+  });
 }
 
 function escAttr(str) {
   return String(str).replace(/"/g, "&quot;");
+}
+
+function filterRowMarkup(group, row, size) {
+  const on = isChecked(group.key, row.value);
+  const boxClass = size === "sheet" ? "sheet-row__box" : "filter-row__box";
+  const rowClass = size === "sheet" ? "sheet-row" : "filter-row";
+  const nameClass = size === "sheet" ? "sheet-row__name" : "filter-row__name";
+  const countClass = size === "sheet" ? "sheet-row__count" : "filter-row__count";
+  const count = PRODUCTS.filter(row.test).length;
+  return `
+    <button type="button" class="${rowClass} ${on ? "is-checked" : ""}" data-filter-group="${group.key}" data-filter-value="${escAttr(row.value)}">
+      <span class="${boxClass}">${on ? "✓" : ""}</span>
+      <span class="${nameClass}">${escAttr(row.name)}</span>
+      <span class="${countClass}">${count}</span>
+    </button>`;
 }
 
 function renderSidebar() {
@@ -67,10 +193,10 @@ function renderSidebar() {
       <div class="filter-sidebar__title">Filter <span class="filter-badge" data-filter-badge>${activeCount()}</span></div>
       <button type="button" class="filter-sidebar__clear" data-filter-clear>Clear</button>
     </div>
-    ${filterState.map(g => `
+    ${FACET_DEFS.map(g => `
       <div class="filter-group">
         <div class="filter-group__label">${g.label}</div>
-        ${g.rows.map(r => filterRowMarkup(g.key, r, "sidebar")).join("")}
+        ${g.rows.map(r => filterRowMarkup(g, r, "sidebar")).join("")}
       </div>`).join("")}
   `;
 }
@@ -78,7 +204,7 @@ function renderSidebar() {
 function renderSheet() {
   const el = document.querySelector("[data-filter-sheet-body]");
   if (!el) return;
-  el.innerHTML = filterState.map(g => {
+  el.innerHTML = FACET_DEFS.map(g => {
     const open = sheetExpanded.has(g.label);
     return `
       <div class="sheet-group">
@@ -86,37 +212,74 @@ function renderSheet() {
           <span class="sheet-group__label">${g.label}</span>
           <span class="sheet-group__chevron">${open ? "−" : "+"}</span>
         </button>
-        ${open ? g.rows.map(r => filterRowMarkup(g.key, r, "sheet")).join("") : ""}
+        ${open ? g.rows.map(r => filterRowMarkup(g, r, "sheet")).join("") : ""}
       </div>`;
   }).join("");
-
   document.querySelectorAll("[data-filter-sheet-badge]").forEach(b => (b.textContent = activeCount()));
 }
 
-function renderChipsAndBadges() {
+function renderChipsAndBadges(resultCount) {
   const chips = [];
-  filterState.forEach(g => g.rows.forEach(r => { if (r.on) chips.push({ group: g.key, name: r.name }); }));
+  if (seasonalOnly) chips.push({ special: "seasonal", label: "Seasonal picks" });
+  FACET_DEFS.forEach(g => g.rows.forEach(r => {
+    if (isChecked(g.key, r.value)) chips.push({ group: g.key, value: r.value, label: r.name });
+  }));
+  if (searchTerm) chips.push({ special: "search", label: `"${searchTerm}"` });
 
   document.querySelectorAll("[data-chip-row]").forEach(row => {
-    row.innerHTML = chips.map(c => `
-      <button type="button" class="chip" data-chip-remove data-filter-group="${c.group}" data-filter-name="${escAttr(c.name)}">
-        <span>${escAttr(c.name)}</span>
-        <span class="chip__x">✕</span>
-      </button>`).join("");
+    row.innerHTML = chips.map(c => {
+      if (c.special === "seasonal") return chipMarkup(c.label, `data-chip-seasonal`);
+      if (c.special === "search") return chipMarkup(c.label, `data-chip-search`);
+      return chipMarkup(c.label, `data-filter-group="${c.group}" data-filter-value="${escAttr(c.value)}"`);
+    }).join("");
   });
 
   document.querySelectorAll("[data-filter-badge]").forEach(b => (b.textContent = activeCount()));
   document.querySelectorAll("[data-filter-sheet-badge]").forEach(b => (b.textContent = activeCount()));
+  document.querySelectorAll("[data-result-count]").forEach(el => (el.textContent = `${resultCount} result${resultCount === 1 ? "" : "s"}`));
+}
+
+function chipMarkup(label, attrs) {
+  return `<button type="button" class="chip" data-chip-remove ${attrs}><span>${escAttr(label)}</span><span class="chip__x">✕</span></button>`;
+}
+
+function renderResults(results) {
+  const grid = document.querySelector('[data-product-grid="browse"]');
+  if (grid) grid.innerHTML = renderProductGrid(results.slice(0, visibleCount));
+
+  const shown = Math.min(visibleCount, results.length);
+  document.querySelectorAll("[data-showing-count]").forEach(el => (el.textContent = `Showing ${shown} of ${results.length}`));
+  document.querySelectorAll("[data-load-more]").forEach(btn => {
+    const done = shown >= results.length;
+    btn.hidden = done;
+  });
+  document.querySelectorAll("[data-sheet-apply]").forEach(btn => (btn.textContent = `Show ${results.length} results`));
+
+  const emptyState = document.querySelector("[data-empty-state]");
+  if (emptyState) emptyState.hidden = results.length > 0;
 }
 
 document.addEventListener("click", e => {
-  const row = e.target.closest("[data-filter-group][data-filter-name]");
+  const row = e.target.closest("[data-filter-group][data-filter-value]");
   if (row) {
-    toggleFilter(row.getAttribute("data-filter-group"), row.getAttribute("data-filter-name"));
+    toggleChecked(row.getAttribute("data-filter-group"), row.getAttribute("data-filter-value"));
+    return;
+  }
+  if (e.target.closest("[data-chip-seasonal]")) {
+    seasonalOnly = false;
+    visibleCount = 6;
+    renderAll();
+    return;
+  }
+  if (e.target.closest("[data-chip-search]")) {
+    searchTerm = "";
+    document.querySelectorAll(".search-input").forEach(i => (i.value = ""));
+    visibleCount = 6;
+    renderAll();
     return;
   }
   if (e.target.closest("[data-filter-clear]") || e.target.closest("[data-sheet-clear]")) {
-    clearFilters();
+    clearAllFilters();
     return;
   }
   const groupToggle = e.target.closest("[data-sheet-group-toggle]");
@@ -164,10 +327,11 @@ function wireSortDropdown() {
       const opt = e.target.closest("[data-sort-option]");
       if (!opt) return;
       e.preventDefault();
-      const label = opt.getAttribute("data-sort-option");
-      document.querySelectorAll("[data-sort-label]").forEach(l => (l.textContent = `Sort: ${label}`));
+      sortMode = opt.getAttribute("data-sort-option");
+      document.querySelectorAll("[data-sort-label]").forEach(l => (l.textContent = `Sort: ${sortMode}`));
       panel.classList.remove("is-open");
-      applySort(label);
+      visibleCount = 6;
+      renderAll();
     });
   });
   document.addEventListener("click", e => {
@@ -177,33 +341,11 @@ function wireSortDropdown() {
   });
 }
 
-function applySort(label) {
-  document.querySelectorAll('[data-product-grid="browse"]').forEach(grid => {
-    const cards = Array.from(grid.children);
-    if (label === "Price: low to high") {
-      cards.sort((a, b) => parseFloat(a.dataset.price) - parseFloat(b.dataset.price));
-    } else if (label === "Price: high to low") {
-      cards.sort((a, b) => parseFloat(b.dataset.price) - parseFloat(a.dataset.price));
-    } else {
-      cards.sort((a, b) => a.dataset.originalIndex - b.dataset.originalIndex);
-    }
-    cards.forEach(c => grid.appendChild(c));
-  });
-}
-
 function wireLoadMore() {
   document.querySelectorAll("[data-load-more]").forEach(btn => {
     btn.addEventListener("click", () => {
-      btn.textContent = "That's all for now";
-      btn.disabled = true;
-      document.querySelectorAll("[data-showing-count]").forEach(el => (el.textContent = "Showing 6 of 6"));
+      visibleCount += 6;
+      renderAll();
     });
   });
 }
-
-// stamp original order so "Featured" can restore it after sorting
-document.addEventListener("DOMContentLoaded", () => {
-  document.querySelectorAll('[data-product-grid="browse"]').forEach(grid => {
-    Array.from(grid.children).forEach((c, i) => (c.dataset.originalIndex = i));
-  });
-});

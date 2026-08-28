@@ -230,8 +230,8 @@ button { font-family: inherit; }
 .footer-grid { display: grid; grid-template-columns: 1fr; gap: 28px; }
 .footer-brand { display: flex; flex-direction: column; gap: 12px; }
 .footer-brand img { border-radius: 50%; }
-.footer-brand p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--muted); max-width: 30ch; }
-.footer-brand--mobile p { max-width: none; }
+.footer-brand p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--muted); max-width: 70ch; }
+.footer-top { padding-bottom: 28px; border-bottom: 1px solid var(--border); margin-bottom: 28px; }
 .social-row { display: flex; gap: 16px; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--label); }
 .social-row a:hover { color: var(--link-hover); }
 
@@ -250,7 +250,7 @@ button { font-family: inherit; }
 .footer-bottom__links a:hover { color: var(--link-hover); }
 
 @media (min-width: 880px) {
-  .footer-grid { grid-template-columns: 1.3fr repeat(5, 1fr); gap: 24px; }
+  .footer-grid { grid-template-columns: repeat(5, 1fr); gap: 24px; }
   .footer-bottom { flex-direction: row; align-items: center; justify-content: space-between; gap: 28px; margin-top: 36px; }
 }
 

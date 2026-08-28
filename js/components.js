@@ -173,17 +173,19 @@ function renderFooter() {
   return `
     <div class="only-desktop">
       <div class="site-footer">
-        <div class="footer-grid">
+        <div class="footer-top">
           <div class="footer-brand">
             <a href="${OO}/">
               <img src="assets/ole-logo-round.png" alt="Olé &amp; Obrigado" width="52" height="52">
             </a>
-            <p>A curated collection of wines from family-owned estates across Spain and Portugal. Imported nationally, distributed direct in NY and NJ.</p>
+            <p>Olé &amp; Obrigado represents a collection of fine wines crafted by family-owned wineries in Spain and Portugal. A collaboration among business partners Patrick Mata and Alberto Orte, Olé &amp; Obrigado is a highly specialized wine import company offering the most comprehensive and well-curated collection of wines from the Iberian Peninsula available in the U.S.</p>
             <div class="social-row">
               <a href="https://www.instagram.com/oleobrigado/">Instagram</a>
               <a href="https://www.facebook.com/OleObrigado/">Facebook</a>
             </div>
           </div>
+        </div>
+        <div class="footer-grid">
           ${colsDesktop}
         </div>
         <div class="footer-bottom">
@@ -205,7 +207,7 @@ function renderFooter() {
           <a href="${OO}/">
             <img src="assets/ole-logo-round.png" alt="Olé &amp; Obrigado" width="52" height="52">
           </a>
-          <p>A curated collection of wines from family-owned estates across Spain and Portugal. Imported nationally, distributed direct in NY and NJ.</p>
+          <p>Olé &amp; Obrigado represents a collection of fine wines crafted by family-owned wineries in Spain and Portugal. A collaboration among business partners Patrick Mata and Alberto Orte, Olé &amp; Obrigado is a highly specialized wine import company offering the most comprehensive and well-curated collection of wines from the Iberian Peninsula available in the U.S.</p>
         </div>
         ${colsMobile}
         <div class="footer-bottom">

@@ -139,8 +139,10 @@ function matchesProduct(p) {
 
 function filteredSortedProducts() {
   const list = PRODUCTS.filter(matchesProduct);
-  if (sortMode === "Price: low to high") list.sort((a, b) => a.priceNum - b.priceNum);
-  else if (sortMode === "Price: high to low") list.sort((a, b) => b.priceNum - a.priceNum);
+  if (sortMode === "Price ↑") list.sort((a, b) => a.priceNum - b.priceNum);
+  else if (sortMode === "Price ↓") list.sort((a, b) => b.priceNum - a.priceNum);
+  else if (sortMode === "Name ↑") list.sort((a, b) => a.title.localeCompare(b.title));
+  else if (sortMode === "Name ↓") list.sort((a, b) => b.title.localeCompare(a.title));
   return list;
 }
 
@@ -404,7 +406,7 @@ function wireSheetOpenClose() {
   document.querySelectorAll("[data-sheet-apply]").forEach(btn => btn.addEventListener("click", closeSheet));
 }
 
-const SORT_OPTIONS = ["Featured", "Price: low to high", "Price: high to low"];
+const SORT_OPTIONS = ["Featured", "Name ↓", "Name ↑", "Price ↓", "Price ↑"];
 
 function wireSortDropdown() {
   document.querySelectorAll("[data-sort-toggle]").forEach(toggle => {

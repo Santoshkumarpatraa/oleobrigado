@@ -422,7 +422,7 @@ function wireSortDropdown() {
       if (!opt) return;
       e.preventDefault();
       sortMode = opt.getAttribute("data-sort-option");
-      document.querySelectorAll("[data-sort-label]").forEach(l => (l.textContent = `Sort: ${sortMode}`));
+      document.querySelectorAll("[data-sort-label]").forEach(l => (l.textContent = sortMode));
       panel.classList.remove("is-open");
       visibleCount = 6;
       renderAll();

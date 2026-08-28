@@ -26,6 +26,25 @@ function hashStr(str) {
   for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
   return Math.abs(h);
 }
+// Homepage category tiles: count and link are computed from the real catalog
+// rather than hand-typed, so they can't drift out of sync with it.
+function categoryMatches(c, p) {
+  if (c.filter.seasonal) return SEASONAL_IDS.includes(p.id);
+  if (c.filter.country && p.country !== c.filter.country) return false;
+  if (c.filter.style && p.style !== c.filter.style) return false;
+  return true;
+}
+function categoryCount(c) {
+  return PRODUCTS.filter(p => categoryMatches(c, p)).length;
+}
+function categoryHref(c) {
+  if (c.filter.seasonal) return "browse.html?seasonal=1";
+  const params = new URLSearchParams();
+  if (c.filter.country) params.set("country", c.filter.country);
+  if (c.filter.style) params.set("style", c.filter.style);
+  return "browse.html?" + params.toString();
+}
+
 function pickBadge(p) {
   if (p.badge) return p.badge;
   const h = hashStr(p.id);
@@ -268,13 +287,21 @@ function mountSiteChrome() {
   document.querySelectorAll("[data-category-grid]").forEach(el => {
     const limit = el.hasAttribute("data-limit") ? Number(el.getAttribute("data-limit")) : CATEGORIES.length;
     el.innerHTML = CATEGORIES.slice(0, limit).map(c => `
-      <a href="browse.html" class="category-tile">
+      <a href="${esc(categoryHref(c))}" class="category-tile">
         <div class="category-tile__dot" style="background:${c.fill};border:${c.ring}"></div>
         <div>
           <div class="category-tile__name">${esc(c.name)}</div>
-          <div class="category-tile__count">${c.count} bottles</div>
+          <div class="category-tile__count">${categoryCount(c)} bottles</div>
         </div>
       </a>`).join("");
+  });
+  document.querySelectorAll("[data-browse-all-link]").forEach(el => {
+    el.href = "browse.html";
+    el.textContent = `Browse all ${PRODUCTS.length} bottles`;
+  });
+  document.querySelectorAll("[data-seasonal-link]").forEach(el => {
+    el.href = "browse.html?seasonal=1";
+    el.textContent = `See all ${SEASONAL_PRODUCTS.length} →`;
   });
   document.querySelectorAll("[data-trust-list]").forEach(el => {
     el.innerHTML = TRUST.map(t => `

@@ -91,15 +91,21 @@ const FOOTER_COLS = [
   ] }
 ];
 
+// Counts and hrefs are computed live from PRODUCTS (see components.js) instead
+// of being hand-typed here — with a real, changing catalog, a hardcoded number
+// drifts out of sync immediately (the original mockup's tiles never matched
+// the real 122-bottle catalog once it replaced the fictional one). "Bundles"
+// is dropped since it never had any real products or filter behind it; "Rosé"
+// is added since 9 real bottles had no category tile at all.
 const CATEGORIES = [
-  { name: "Spanish reds", count: 42, fill: "#8C2F2A", ring: "none" },
-  { name: "Spanish whites", count: 38, fill: "#D8C98A", ring: "none" },
-  { name: "Portuguese reds", count: 27, fill: "#6D2430", ring: "none" },
-  { name: "Portuguese whites", count: 19, fill: "#CBD6A8", ring: "none" },
-  { name: "Sparkling", count: 14, fill: "#E8DFC0", ring: "none" },
-  { name: "Gin & spirits", count: 9, fill: "#B9C3CC", ring: "none" },
-  { name: "Bundles", count: 11, fill: "transparent", ring: "1.5px solid #C4BAA8" },
-  { name: "Seasonal", count: 12, fill: "transparent", ring: "1.5px solid #C4BAA8" }
+  { name: "Spanish reds", fill: "#8C2F2A", ring: "none", filter: { country: "Spain", style: "Red" } },
+  { name: "Spanish whites", fill: "#D8C98A", ring: "none", filter: { country: "Spain", style: "White" } },
+  { name: "Portuguese reds", fill: "#6D2430", ring: "none", filter: { country: "Portugal", style: "Red" } },
+  { name: "Portuguese whites", fill: "#CBD6A8", ring: "none", filter: { country: "Portugal", style: "White" } },
+  { name: "Rosé", fill: "#E3A6A0", ring: "none", filter: { style: "Rosé" } },
+  { name: "Sparkling", fill: "#E8DFC0", ring: "none", filter: { style: "Sparkling" } },
+  { name: "Gin & spirits", fill: "#B9C3CC", ring: "none", filter: { style: "Gin & spirits" } },
+  { name: "Seasonal", fill: "transparent", ring: "1.5px solid #C4BAA8", filter: { seasonal: true } }
 ];
 
 const TRUST = [

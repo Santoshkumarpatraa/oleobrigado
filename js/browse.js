@@ -227,11 +227,15 @@ function renderSidebar() {
       <div class="filter-sidebar__title">Filter <span class="filter-badge" data-filter-badge>${activeCount()}</span></div>
       <button type="button" class="filter-sidebar__clear" data-filter-clear>Clear</button>
     </div>
-    ${FACET_DEFS.map(g => `
+    ${FACET_DEFS.map(g => {
+      const rowsHtml = g.rows.map(r => filterRowMarkup(g, r, "sidebar")).join("");
+      const scroll = g.key === "region" || g.key === "grape";
+      return `
       <div class="filter-group">
         <div class="filter-group__label">${g.label}</div>
-        ${g.rows.map(r => filterRowMarkup(g, r, "sidebar")).join("")}
-      </div>`).join("")}
+        ${scroll ? `<div class="filter-group__scroll">${rowsHtml}</div>` : rowsHtml}
+      </div>`;
+    }).join("")}
   `;
 }
 
@@ -240,13 +244,15 @@ function renderSheet() {
   if (!el) return;
   el.innerHTML = FACET_DEFS.map(g => {
     const open = sheetExpanded.has(g.label);
+    const rowsHtml = g.rows.map(r => filterRowMarkup(g, r, "sheet")).join("");
+    const scroll = g.key === "region" || g.key === "grape";
     return `
       <div class="sheet-group">
         <button type="button" class="sheet-group__head" data-sheet-group-toggle="${g.label}">
           <span class="sheet-group__label">${g.label}</span>
           <span class="sheet-group__chevron">${open ? "−" : "+"}</span>
         </button>
-        ${open ? g.rows.map(r => filterRowMarkup(g, r, "sheet")).join("") : ""}
+        ${open ? (scroll ? `<div class="filter-group__scroll">${rowsHtml}</div>` : rowsHtml) : ""}
       </div>`;
   }).join("");
   document.querySelectorAll("[data-filter-sheet-badge]").forEach(b => (b.textContent = activeCount()));

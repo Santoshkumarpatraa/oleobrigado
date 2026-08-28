@@ -14,9 +14,29 @@ function linkAttrs(href) {
   return `href="${esc(href)}"`;
 }
 
+// Merchandising badges (NEW / BEST VALUE / STAFF PICK / point scores) — the real
+// catalog doesn't carry these per-bottle, so they're assigned deterministically
+// from each product's id (same badge every time, shared between the browse
+// card and its detail page) rather than genuinely random or sourced from any
+// real critic. About a third of bottles get one, matching how sparingly the
+// original design used them.
+const BADGE_POOL = ["NEW", "BEST VALUE", "STAFF PICK", "90 PTS", "91 PTS", "92 PTS", "93 PTS", "94 PTS", "95 PTS"];
+function hashStr(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+function pickBadge(p) {
+  if (p.badge) return p.badge;
+  const h = hashStr(p.id);
+  if (h % 100 >= 32) return "";
+  return BADGE_POOL[h % BADGE_POOL.length];
+}
+
 function renderProductCard(p) {
-  const badge = p.badge
-    ? `<div class="product-card__badge">${esc(p.badge)}</div>`
+  const badgeText = pickBadge(p);
+  const badge = badgeText
+    ? `<div class="product-card__badge">${esc(badgeText)}</div>`
     : "";
   const priceNum = parseFloat(String(p.price).replace(/[^0-9.]/g, "")) || 0;
   // Real bottle photos come straight from oleobrigado.com's own product pages;
@@ -27,7 +47,7 @@ function renderProductCard(p) {
     : "";
   const fallback = `<span${p.image ? ' style="display:none"' : ""}>bottle shot</span>`;
   return `
-    <a href="product.html" class="product-card" data-price="${priceNum}">
+    <a href="product.html?id=${encodeURIComponent(p.id)}" class="product-card" data-price="${priceNum}">
       <div class="product-card__image">
         ${img}
         ${fallback}
@@ -238,10 +258,11 @@ function mountSiteChrome() {
     el.innerHTML = renderFooter();
   });
   document.querySelectorAll("[data-product-grid]").forEach(el => {
-    // "browse" is owned by browse.js (filter/sort/search-driven) — skip it here.
+    // "browse" (filter/sort/search-driven) and "related" (depends on which
+    // product page you're on) are owned by browse.js / product.js — skip both.
     const key = el.getAttribute("data-product-grid");
-    if (key === "browse") return;
-    const list = { seasonal: SEASONAL_PRODUCTS, related: RELATED_PRODUCTS }[key] || [];
+    if (key === "browse" || key === "related") return;
+    const list = { seasonal: SEASONAL_PRODUCTS }[key] || [];
     el.innerHTML = renderProductGrid(list);
   });
   document.querySelectorAll("[data-category-grid]").forEach(el => {
@@ -262,18 +283,15 @@ function mountSiteChrome() {
         <p class="trust-item__p">${esc(t.p)}</p>
       </div>`).join("");
   });
-  document.querySelectorAll("[data-specs-list]").forEach(el => {
-    el.innerHTML = PRODUCT_SPECS.map(s => `
-      <div class="spec-row">
-        <div class="spec-row__k">${esc(s.k)}</div>
-        <div class="spec-row__v">${esc(s.v)}</div>
-      </div>`).join("");
-  });
-  document.querySelectorAll("[data-scores-list]").forEach(el => {
-    el.innerHTML = PRODUCT_SCORES.map(s => `
-      <div class="score-row">
-        <div class="score-row__source">${esc(s.source)}</div>
-        <div class="score-row__value">${esc(s.score)}</div>
-      </div>`).join("");
-  });
+}
+
+// Shared by product.js: one spec row (Producer / Region / Grape / ... — only
+// ever real, verified fields, since there's no per-bottle vintage/ABV/farming
+// data in the source catalog).
+function renderSpecRow(k, v) {
+  return `
+    <div class="spec-row">
+      <div class="spec-row__k">${esc(k)}</div>
+      <div class="spec-row__v">${esc(v)}</div>
+    </div>`;
 }

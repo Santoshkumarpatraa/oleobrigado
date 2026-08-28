@@ -125,8 +125,6 @@ function bottle(o) {
 // alongside the real catalog below so the product-detail page still has
 // its subject; it has no real photo, so it falls back to the placeholder).
 const PRODUCTS = [
-  bottle({ id: "sacristia-ab-sombrajo", producer: "Antonio Barbadillo Mateos", title: "Sacristía AB Sombrajo Viña La Rosa 2021", note: "Flor-aged and bone dry; almond, salt and chalk.", badge: "94 PTS", price: 42.00, country: "Spain", style: "White", region: "Jerez-Xérès-Sherry", grape: "Palomino Fino", seasonal: false }),
-
   bottle({ id: "3000-cepas-albarino", producer: "Lagar de Pintos", title: "3000 Cepas Albariño", note: "Albariño from Rías Baixas.", badge: "", price: 31.9, country: "Spain", style: "White", region: "Rías Baixas", grape: "Albariño", image: "https://oleobrigado.com/files/bt_66eaf6e13686a.jpg" }),
   bottle({ id: "a-portela-mencia", producer: "Alberto Orte", title: "A Portela Mencía", note: "Mencía from Valdeorras.", badge: "", price: 30.9, country: "Spain", style: "Red", region: "Valdeorras", grape: "Mencía", image: "https://oleobrigado.com/files/bt_692dc4bbf3388.jpg" }),
   bottle({ id: "a-touriga-vai-nua", producer: "Fitapreta", title: "A Touriga Vai Nua", note: "Touriga Naçional from Vinho Regional Alentejano.", badge: "", price: 29.9, country: "Portugal", style: "Red", region: "Vinho Regional Alentejano", grape: "Touriga Naçional", image: "https://oleobrigado.com/files/bottle_679_a-touriga-vai-nuajpg.jpg" }),
@@ -256,22 +254,6 @@ const PRODUCTS = [
 const SEASONAL_IDS = ["leirana-albarino", "nortico-alvarinho", "oro-de-castilla-verdejo", "granito-cru-dao-branco"];
 const SEASONAL_PRODUCTS = SEASONAL_IDS.map(id => PRODUCTS.find(p => p.id === id)).filter(Boolean);
 
-// "More sherries from Jerez" on the product-detail page (Sacristía AB Sombrajo
-// is itself a Jerez sherry) — same-region rather than same-producer, since the
-// real catalog only has one other Barbadillo bottle.
-const RELATED_PRODUCTS = PRODUCTS.filter(p => p.region === "Jerez-Xérès-Sherry" && p.id !== "sacristia-ab-sombrajo").slice(0, 4);
-
-const PRODUCT_SPECS = [
-  { k: "Vintage", v: "2021" },
-  { k: "Grape", v: "Palomino Fino" },
-  { k: "Region", v: "Vino de la Tierra de Cádiz" },
-  { k: "ABV", v: "15.0%" },
-  { k: "Size", v: "750 ml" },
-  { k: "Farming", v: "Organic, unfined" }
-];
-
-const PRODUCT_SCORES = [
-  { source: "Wine Enthusiast", score: "94" },
-  { source: "Decanter", score: "92" },
-  { source: "Tim Atkin", score: "93" }
-];
+// Product detail is per-product (product.html?id=...) — see product.js for how
+// it looks up the current bottle, its specs (built only from real fields we
+// actually have), and its related list. No fixed "the" featured product here.

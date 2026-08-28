@@ -135,6 +135,10 @@ function applyUrlParams() {
   if (region && FACET_DEFS.find(g => g.key === "region").rows.some(r => r.value === region)) {
     checked[checkedKey("region", region)] = true;
   }
+  const country = params.get("country");
+  if (country && FACET_DEFS.find(g => g.key === "country").rows.some(r => r.value === country)) {
+    checked[checkedKey("country", country)] = true;
+  }
   if (params.get("seasonal") === "1") seasonalOnly = true;
 
   document.querySelectorAll('[data-search-form] .search-input').forEach(input => (input.value = searchTerm));

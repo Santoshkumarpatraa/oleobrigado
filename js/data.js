@@ -260,6 +260,80 @@ const PRODUCTS = [
 const SEASONAL_IDS = ["leirana-albarino", "nortico-alvarinho", "oro-de-castilla-verdejo", "granito-cru-dao-branco"];
 const SEASONAL_PRODUCTS = SEASONAL_IDS.map(id => PRODUCTS.find(p => p.id === id)).filter(Boolean);
 
+// --- Shared filter rules (browse page filters and the "Help me choose" quiz) ---
+
+const PRICE_BUCKETS = [
+  { key: "under20", label: "Under $20", test: p => p.priceNum < 20 },
+  { key: "20-30", label: "$20 – $30", test: p => p.priceNum >= 20 && p.priceNum < 30 },
+  { key: "30-50", label: "$30 – $50", test: p => p.priceNum >= 30 && p.priceNum < 50 },
+  { key: "50plus", label: "$50+", test: p => p.priceNum >= 50 }
+];
+
+// Source listings misspell a few grapes; aliases merge them so one variety is one facet row.
+const GRAPE_ALIASES = {
+  "Mencia": "Mencía",
+  "Codega": "Códega",
+  "Pedro Ximenez": "Pedro Ximénez",
+  "Touriga Nacional": "Touriga Naçional",
+  "Tinta Amarella": "Tinta Amarela",
+  "Dozelinho Tinto": "Donzelinho Tinto",
+  "Alvarinho (Albariño )": "Alvarinho (Albariño)"
+};
+
+function parseGrapes(grapeStr) {
+  if (!grapeStr) return [];
+  return grapeStr
+    .split(/,|&/)
+    .map(s => s.trim().replace(/\.$/, ""))
+    .filter(Boolean)
+    .map(g => GRAPE_ALIASES[g] || g);
+}
+
+// PLACEHOLDER pending Olé's approval: which grapes read light, smooth or bold is their call, not ours.
+const TASTES = [
+  {
+    key: "light",
+    label: "Light & fresh",
+    hint: { White: "Crisp, zesty and citrusy.", Red: "Bright and juicy, good lightly chilled.", any: "Crisp and refreshing." },
+    grapes: ["Albariño", "Alvarinho (Albariño)", "Loureiro", "Arinto", "Arinto dos Açores", "Arinto dos Açores and Verdelho",
+      "Hondarrabi Zuri", "Verdejo", "Viura", "Azal", "Sauvignon Blanc", "Bical", "Cercial", "Rabigato", "Gouveio", "Goveio",
+      "Vigiriega Blanca", "Malvar", "Tamarez", "Parellada",
+      "Mencía", "Jaen", "Merenzao", "Rufete", "Morenillo", "Tinta Pinheira", "Tinta Carvalha", "Donzelinho Tinto"]
+  },
+  {
+    key: "smooth",
+    label: "Smooth & balanced",
+    hint: { White: "Rounder and softer, with a little more texture.", Red: "Soft, fruity and easy-going.", any: "Soft and easy-going." },
+    grapes: ["Godello", "Viosinho", "Códega", "Codega do Larinho", "Roupeiro", "Tempranillo Blanco", "Verdelho", "Rabo de Ovelha",
+      "Malvasia", "Alicante Branco",
+      "Garnacha", "Tempranillo", "Merlot", "Aragonez", "Alfrocheiro", "Castelão", "Tinta Barroca", "Tinta Amarela", "Bobal"]
+  },
+  {
+    key: "bold",
+    label: "Bold & rich",
+    hint: { White: "Full-bodied and rich.", Red: "Deep, powerful and structured.", any: "Full, deep and powerful." },
+    grapes: ["Garnacha Blanca", "Chardonnay", "Encruzado", "Antão Vaz", "Viognier",
+      "Monastrell", "Touriga Naçional", "Syrah", "Cabernet Sauvignon", "Tinto Fino (Tempranillo)", "Tempranillo (Tinto Fino)",
+      "Tinta Roriz", "Touriga Franca", "Sousão", "Cariñena", "Mazuelo (Cariñena)", "Graciano", "Tintilla", "Alicante",
+      "Alicante Bouchet", "Garnacha Tintorera"]
+  }
+];
+
+// Rosé, sparkling and spirits read alike across this range, so taste only splits reds and whites.
+const TASTE_STYLES = ["Red", "White"];
+
+const TASTE_BY_GRAPE = new Map(TASTES.flatMap(t => t.grapes.map(g => [g, t.key])));
+
+// A blend takes the taste of its first listed grape that has one, since listings lead with the main grape.
+function tasteOf(p) {
+  if (!TASTE_STYLES.includes(p.style)) return null;
+  for (const grape of parseGrapes(p.grape)) {
+    const key = TASTE_BY_GRAPE.get(grape);
+    if (key) return key;
+  }
+  return null;
+}
+
 // Product detail is per-product (product.html?id=...) — see product.js for how
 // it looks up the current bottle, its specs (built only from real fields we
 // actually have), and its related list. No fixed "the" featured product here.

@@ -3,41 +3,8 @@
 // results, counts, chips and the "N results" text are always the real, current
 // answer instead of decorative state layered on a fixed 6-item grid.
 
-const PRICE_BUCKETS = [
-  { key: "under20", label: "Under $20", test: p => p.priceNum < 20 },
-  { key: "20-30", label: "$20 – $30", test: p => p.priceNum >= 20 && p.priceNum < 30 },
-  { key: "30-50", label: "$30 – $50", test: p => p.priceNum >= 30 && p.priceNum < 50 },
-  { key: "50plus", label: "$50+", test: p => p.priceNum >= 50 }
-];
-
 function uniqueSorted(values) {
   return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
-}
-
-// The real catalog lists blends as one raw string per bottle (e.g. "Tinto Fino
-// (Tempranillo), Merlot, Albillo Mayor" or "Garnacha, Cariñena & Syrah") — split
-// on commas/ampersands so each variety becomes its own filterable facet value
-// instead of every unique blend combination becoming a one-off row.
-// The source listings spell a few grapes inconsistently across bottles (missing
-// accents, one typo) — normalize the clear cases so they collapse into a single
-// facet row instead of splitting an otherwise-identical variety into two.
-const GRAPE_ALIASES = {
-  "Mencia": "Mencía",
-  "Codega": "Códega",
-  "Pedro Ximenez": "Pedro Ximénez",
-  "Touriga Nacional": "Touriga Naçional",
-  "Tinta Amarella": "Tinta Amarela",
-  "Dozelinho Tinto": "Donzelinho Tinto",
-  "Alvarinho (Albariño )": "Alvarinho (Albariño)"
-};
-
-function parseGrapes(grapeStr) {
-  if (!grapeStr) return [];
-  return grapeStr
-    .split(/,|&/)
-    .map(s => s.trim().replace(/\.$/, ""))
-    .filter(Boolean)
-    .map(g => GRAPE_ALIASES[g] || g);
 }
 
 function buildFacetDefs() {
@@ -60,6 +27,8 @@ const FACET_DEFS = buildFacetDefs();
 // state
 let checked = {}; // { "style:White": true, ... }
 let seasonalOnly = false;
+let tasteFilter = null;
+let fromQuiz = false;
 let searchTerm = "";
 let sortMode = "Featured";
 let visibleCount = 6;
@@ -84,6 +53,7 @@ function toggleChecked(groupKey, value) {
 function clearAllFilters() {
   checked = {};
   seasonalOnly = false;
+  tasteFilter = null;
   facetSearch = { region: "", grape: "" };
   visibleCount = 6;
   renderAll();
@@ -126,6 +96,7 @@ function activeRowsInGroup(group) {
 
 function matchesProduct(p) {
   if (seasonalOnly && !SEASONAL_IDS.includes(p.id)) return false;
+  if (tasteFilter && tasteOf(p) !== tasteFilter) return false;
   for (const group of FACET_DEFS) {
     const active = activeRowsInGroup(group);
     if (active.length && !active.some(r => r.test(p))) return false;
@@ -149,6 +120,7 @@ function filteredSortedProducts() {
 function activeCount() {
   let n = Object.values(checked).filter(Boolean).length;
   if (seasonalOnly) n += 1;
+  if (tasteFilter) n += 1;
   return n;
 }
 
@@ -162,19 +134,15 @@ function applyUrlParams() {
   const params = new URLSearchParams(location.search);
   const q = params.get("q");
   if (q) searchTerm = q;
-  const style = params.get("style");
-  if (style && FACET_DEFS.find(g => g.key === "style").rows.some(r => r.value === style)) {
-    checked[checkedKey("style", style)] = true;
-  }
-  const region = params.get("region");
-  if (region && FACET_DEFS.find(g => g.key === "region").rows.some(r => r.value === region)) {
-    checked[checkedKey("region", region)] = true;
-  }
-  const country = params.get("country");
-  if (country && FACET_DEFS.find(g => g.key === "country").rows.some(r => r.value === country)) {
-    checked[checkedKey("country", country)] = true;
-  }
+  FACET_DEFS.forEach(g => {
+    params.getAll(g.key).forEach(value => {
+      if (g.rows.some(r => r.value === value)) checked[checkedKey(g.key, value)] = true;
+    });
+  });
+  const taste = params.get("taste");
+  if (TASTES.some(t => t.key === taste)) tasteFilter = taste;
   if (params.get("seasonal") === "1") seasonalOnly = true;
+  fromQuiz = params.get("quiz") === "1";
 
   document.querySelectorAll('[data-search-form] .search-input').forEach(input => (input.value = searchTerm));
 }
@@ -304,14 +272,18 @@ function renderSheet() {
 function renderChipsAndBadges(resultCount) {
   const chips = [];
   if (seasonalOnly) chips.push({ special: "seasonal", label: "Seasonal picks" });
-  FACET_DEFS.forEach(g => g.rows.forEach(r => {
-    if (isChecked(g.key, r.value)) chips.push({ group: g.key, value: r.value, label: r.name });
-  }));
+  FACET_DEFS.forEach(g => {
+    g.rows.forEach(r => {
+      if (isChecked(g.key, r.value)) chips.push({ group: g.key, value: r.value, label: r.name });
+    });
+    if (g.key === "style" && tasteFilter) chips.push({ special: "taste", label: TASTES.find(t => t.key === tasteFilter).label });
+  });
   if (searchTerm) chips.push({ special: "search", label: `"${searchTerm}"` });
 
   document.querySelectorAll("[data-chip-row]").forEach(row => {
     row.innerHTML = chips.map(c => {
       if (c.special === "seasonal") return chipMarkup(c.label, `data-chip-seasonal`);
+      if (c.special === "taste") return chipMarkup(c.label, `data-chip-taste`);
       if (c.special === "search") return chipMarkup(c.label, `data-chip-search`);
       return chipMarkup(c.label, `data-filter-group="${c.group}" data-filter-value="${escAttr(c.value)}"`);
     }).join("");
@@ -319,6 +291,8 @@ function renderChipsAndBadges(resultCount) {
 
   document.querySelectorAll("[data-filter-badge]").forEach(b => (b.textContent = activeCount()));
   document.querySelectorAll("[data-filter-sheet-badge]").forEach(b => (b.textContent = activeCount()));
+  if (activeCount() === 0) fromQuiz = false; // once cleared, later filters are the shopper's own, not quiz picks
+  document.querySelectorAll("[data-quiz-banner]").forEach(el => (el.hidden = !(fromQuiz && resultCount > 0)));
   document.querySelectorAll("[data-result-count]").forEach(el => (el.textContent = `${resultCount} result${resultCount === 1 ? "" : "s"}`));
 }
 
@@ -363,6 +337,12 @@ document.addEventListener("click", e => {
   }
   if (e.target.closest("[data-chip-seasonal]")) {
     seasonalOnly = false;
+    visibleCount = 6;
+    renderAll();
+    return;
+  }
+  if (e.target.closest("[data-chip-taste]")) {
+    tasteFilter = null;
     visibleCount = 6;
     renderAll();
     return;

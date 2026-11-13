@@ -19,6 +19,7 @@ let quizStep = 0;
 let quizAnswers = {};
 let quizOpener = null;
 let quizInerted = [];
+let quizGuardUntil = 0;
 
 function quizSteps() {
   const askTaste = !quizAnswers.style || TASTE_STYLES.includes(quizAnswers.style);
@@ -105,11 +106,11 @@ function renderQuiz({ focusTitle = false } = {}) {
       ${quizStep > 0 ? `<button type="button" class="quiz__back" data-quiz-back>Back</button>` : ""}
       <button type="button" class="quiz__skip" data-quiz-skip>${question.skip}</button>
     </div>`;
+  quizGuardUntil = performance.now() + 400;
+  dialog.scrollTop = 0;
 
   // A new question gets focus on its heading so screen readers announce it; on open the dialog label already does.
-  const target = focusTitle
-    ? dialog.querySelector("#quiz-title")
-    : dialog.querySelector(".quiz-option.is-selected:not(:disabled)") || dialog.querySelector(".quiz-option:not(:disabled)");
+  const target = focusTitle ? dialog.querySelector("#quiz-title") : dialog.querySelector(".quiz-option:not(:disabled)");
   if (target) target.focus();
 }
 
@@ -120,6 +121,7 @@ function openQuiz(opener) {
   quizAnswers = {};
   quizInerted = [...document.body.children].filter(el => !el.matches("[data-quiz], [data-quiz-backdrop]") && !el.inert);
   quizInerted.forEach(el => (el.inert = true));
+  document.body.style.paddingRight = `${window.innerWidth - document.documentElement.clientWidth}px`; // keeps the page from shifting when its scrollbar hides
   document.querySelector("[data-quiz]").classList.add("is-open");
   document.querySelector("[data-quiz-backdrop]").classList.add("is-open");
   document.body.classList.add("quiz-open");
@@ -132,8 +134,10 @@ function closeQuiz() {
   dialog.classList.remove("is-open");
   document.querySelector("[data-quiz-backdrop]").classList.remove("is-open");
   document.body.classList.remove("quiz-open");
+  document.body.style.paddingRight = "";
   quizInerted.forEach(el => (el.inert = false));
   quizInerted = [];
+  quizGuardUntil = performance.now() + 400;
   if (quizOpener) quizOpener.focus();
 }
 
@@ -160,6 +164,18 @@ function clearAnswersAfter(stepKey) {
   QUIZ_ORDER.slice(QUIZ_ORDER.indexOf(stepKey) + 1).forEach(key => delete quizAnswers[key]);
 }
 
+// Swallows the second tap of a double-tap, which would otherwise land on whatever the quiz just drew or uncovered.
+window.addEventListener("click", e => {
+  if (performance.now() < quizGuardUntil) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+}, true);
+
+window.addEventListener("pageshow", e => {
+  if (e.persisted) closeQuiz();
+});
+
 document.addEventListener("click", e => {
   const opener = e.target.closest("[data-quiz-open]");
   if (opener) {
@@ -184,8 +200,10 @@ document.addEventListener("click", e => {
     return;
   }
   if (e.target.closest("[data-quiz-skip]")) {
-    delete quizAnswers[stepKey];
-    clearAnswersAfter(stepKey);
+    if (quizAnswers[stepKey] !== undefined) {
+      delete quizAnswers[stepKey];
+      clearAnswersAfter(stepKey);
+    }
     advanceQuiz();
     return;
   }

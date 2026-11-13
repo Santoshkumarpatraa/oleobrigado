@@ -183,6 +183,7 @@ function activeNavLabel() {
 }
 
 function renderAll() {
+  if (activeCount() === 0) fromQuiz = false; // once cleared, later filters are the shopper's own, not quiz picks
   const results = filteredSortedProducts();
   renderSidebar();
   renderSheet();
@@ -291,13 +292,12 @@ function renderChipsAndBadges(resultCount) {
 
   document.querySelectorAll("[data-filter-badge]").forEach(b => (b.textContent = activeCount()));
   document.querySelectorAll("[data-filter-sheet-badge]").forEach(b => (b.textContent = activeCount()));
-  if (activeCount() === 0) fromQuiz = false; // once cleared, later filters are the shopper's own, not quiz picks
   document.querySelectorAll("[data-quiz-banner]").forEach(el => (el.hidden = !(fromQuiz && resultCount > 0)));
   document.querySelectorAll("[data-result-count]").forEach(el => (el.textContent = `${resultCount} result${resultCount === 1 ? "" : "s"}`));
 }
 
 function chipMarkup(label, attrs) {
-  return `<button type="button" class="chip" data-chip-remove ${attrs}><span>${escAttr(label)}</span><span class="chip__x">✕</span></button>`;
+  return `<button type="button" class="chip" data-chip-remove ${attrs}><span>${esc(label)}</span><span class="chip__x">✕</span></button>`;
 }
 
 function renderResults(results) {
